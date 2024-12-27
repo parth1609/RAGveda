@@ -154,14 +154,13 @@ def main():
     
     st.title("📊 Graph RAG System with Neo4j")
     
-    # Neo4j credentials - Updated URL format
-    neo4j_url = "neo4j://bcb3d1a9.databases.neo4j.io:7687"  # Changed from neo4j+s:// to neo4j://
-    neo4j_user = 'neo4j'
-    neo4j_password = 'WOQ42evsVcfIVKznakvcEIh1QtkVzhq6Yql8S3ZXiGQ'
+    # Neo4j credentials -
+    neo4j_url = st.secret[URL]  
+    neo4j_user = st.secret[username]
+    neo4j_password = user.secret[password]
     
     # Gemini API key
-    gemini_api_key = 'AIzaSyCvFwDbZJ9Z8LAAlMv70tfb1w_mmlsVR3E'
-
+    gemini_api_key = st.secret['gemini_api_key']
     connection_success, message = verify_neo4j_connection(neo4j_url, neo4j_user, neo4j_password)
 
     if connection_success:
