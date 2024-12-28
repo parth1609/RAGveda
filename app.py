@@ -3,7 +3,6 @@ from typing import List, Dict, Any
 from datetime import datetime
 import streamlit as st
 
-# Neo4j and LangChain imports
 from neo4j import GraphDatabase
 from langchain_community.graphs import Neo4jGraph
 from langchain_core.documents import Document
@@ -16,12 +15,37 @@ from langchain.prompts import PromptTemplate
 
 
 def verify_neo4j_connection(url, username, password):
+    """
+    Verify Neo4j database connection with specialized Aura handling
+    
+    :param url: Neo4j database URL
+    :param username: Neo4j username
+    :param password: Neo4j password
+    :return: Tuple of (success_status, message)
+    """
     try:
-        with GraphDatabase.driver(url, auth=(username, password)) as driver:
-            driver.verify_connectivity()
-        return True, "successfully connected"
+
+        # Create driver without the encrypted parameter for neo4j+s
+        driver = GraphDatabase.driver(
+            url, 
+            auth=(username, password),
+            connection_timeout=10,  # Increased timeout
+            max_connection_lifetime=3600,  # 1 hour max connection time
+            connection_acquisition_timeout=5  # Increased acquisition timeout
+        )
+        
+        # Verify actual connectivity with a simple query
+        with driver.session(database="neo4j") as session:
+            result = session.run("RETURN 1 AS test")
+            result.consume()  # Explicitly consume the result
+        
+        driver.close()
+        return True, f"Successfully connected to Neo4j database at {url}!"
+    
     except Exception as e:
-        return False, f"Failed to connect with Neo4j: {str(e)}"
+        # Provide more detailed error information
+        import traceback
+        return False, f"Failed to connect to Neo4j: {type(e).__name__} - {str(e)}\n{traceback.format_exc()}"
         
 def _setup_qa_chain(self) -> GraphQAChain:
     """
@@ -150,20 +174,34 @@ def create_graph_visualization(self) -> str:
 
 
 def main():
-    st.set_page_config(page_title="Graph RAG with Neo4j", layout="wide")
+    st.set_page_config(page_title="RAGVeda", layout="wide")
     
-    st.title("📊 Graph RAG System with Neo4j")
+    st.title("RAGVeda")
     
-    # Neo4j credentials -
-    neo4j_url = st.secret[URL]  
-    neo4j_user = st.secret[username]
-    neo4j_password = user.secret[password]
-    
-    # Gemini API key
-    gemini_api_key = st.secret['gemini_api_key']
-    connection_success, message = verify_neo4j_connection(neo4j_url, neo4j_user, neo4j_password)
+    # Improved credentials handling
+    try:
+        # Get credentials from Streamlit secrets or environment variables
+        neo4j_url = st.secrets["NEO4J_URL"] 
+        neo4j_user = st.secrets["NEO4J_USERNAME"] 
+        neo4j_password = st.secrets["NEO4J_PASSWORD"] 
+        gemini_api_key = st.secrets["GEMINI_API_KEY"] 
 
-    if connection_success:
+        # Validate that all required credentials are present
+        if not all([neo4j_url, neo4j_user, neo4j_password, gemini_api_key]):
+            st.error("Missing required credentials. Please check your Streamlit secrets or environment variables.")
+            st.stop()
+
+        # Verify Neo4j connection before proceeding
+        with st.spinner("Verifying Neo4j connection..."):
+            connection_success, message = verify_neo4j_connection(neo4j_url, neo4j_user, neo4j_password)
+            
+            if connection_success:
+                st.success(message)
+            else:
+                st.error(message)
+                st.stop()  # Stop execution if connection fails
+
+        # Only proceed if connection is successful
         try:
             # Initialize graph_rag object
             graph = Neo4jGraph(
@@ -200,8 +238,9 @@ def main():
 
         except Exception as e:
             st.error(f"Error: {str(e)}")
-    else:
-        st.error(message)
+
+    except Exception as e:
+        st.error(f"Configuration Error: {str(e)}")
     
 
 
