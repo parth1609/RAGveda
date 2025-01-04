@@ -2,7 +2,8 @@
 
 The Retrieval-Augmented Generation (RAG) system that graph database and  LLM to create an intelligent document processing and question-answering platform. The system processes PDF documents, creates knowledge graphs, and enables natural language querying of document content.
 
-
+## The Graph Data Structure
+<img src="/output/op1.png" alt="op1"> <img src="/output/op2.png" alt="op2">
 
 ## 🌟 Features
 
