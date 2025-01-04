@@ -5,7 +5,7 @@ The Retrieval-Augmented Generation (RAG) system that graph database and  LLM to 
 ## The Graph Data Structure
 <img src="/output/op1.png" alt="op1"> <img src="/output/op2.png" alt="op2">
 
-# [The Google Collab Notebook]("https://colab.research.google.com/drive/12KK4XYsj9FvNRX-CxIwa91hCpmT9RJN_?usp=sharing")
+# [The Google Collab Notebook](https://colab.research.google.com/drive/12KK4XYsj9FvNRX-CxIwa91hCpmT9RJN_?usp=sharing)
 
 ## 🌟 Features
 
