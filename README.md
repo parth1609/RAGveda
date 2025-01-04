@@ -62,18 +62,14 @@ groq_api_key=your_groq_api_key
 
 ### Document Processing Flow
 
-1. **Upload Documents**
-   - Use the file uploader in the UI
-   - Support for PDF documents
-   - Multiple file upload capability
 
-2. **Knowledge Graph Creation**
+1. **Knowledge Graph Creation**
    - Automatic document chunking
    - Entity extraction
    - Relationship mapping
    - Graph database population
 
-3. **Querying Documents**
+2. **Querying Documents**
    - Enter natural language questions
    - View responses based on document context
    - Explore graph visualizations
