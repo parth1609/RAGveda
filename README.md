@@ -1,14 +1,14 @@
 # RAGVeda
 
-A sophisticated Retrieval-Augmented Generation (RAG) system that graph database and  LLM to create an intelligent document processing and question-answering platform. The system processes PDF documents, creates knowledge graphs, and enables natural language querying of document content.
+The Retrieval-Augmented Generation (RAG) system that graph database and  LLM to create an intelligent document processing and question-answering platform. The system processes PDF documents, creates knowledge graphs, and enables natural language querying of document content.
+
+## The Graph Data Structure
+<img src="/output/op1.png" alt="op1"> <img src="/output/op2.png" alt="op2">
+
+# [The Google Collab Notebook](https://colab.research.google.com/drive/12KK4XYsj9FvNRX-CxIwa91hCpmT9RJN_?usp=sharing)
 
 ## 🌟 Features
 
-### Document Processing
-- PDF document ingestion and automatic chunking
-- Intelligent text splitting with customizable chunk sizes
-- Entity extraction and relationship mapping
-- Automatic knowledge graph generation
 
 ### Knowledge Graph Integration
 - Neo4j-based graph database implementation
@@ -22,26 +22,14 @@ A sophisticated Retrieval-Augmented Generation (RAG) system that graph database 
 - Graph-based information retrieval
 - Custom prompt templates for improved responses
 
-### User Interface
-- Streamlit-based web interface
-- Interactive document upload
-- Real-time query processing
-- Error handling and user feedback
 
 ## 🛠 Technical Stack
 
 - **Frontend**: Streamlit
 - **Database**: Neo4j Graph Database
-- **LLM**: Google Gemini Pro
-- **Document Processing**: LangChain
-- **Language**: Python 3.8+
+- **LLM**: Groq with "mixtral-8x7b-32768"
 
-## 📋 Prerequisites
 
-1. Python 3.8 or higher
-2. Neo4j Database (local instance or cloud)
-3. Google Cloud account with Gemini API access
-4. Git (for version control)
 
 ## 🚀 Setup Instructions
 
@@ -50,7 +38,7 @@ A sophisticated Retrieval-Augmented Generation (RAG) system that graph database 
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd graph-rag-system
+cd RAGveda
 
 # Create and activate virtual environment
 python -m venv venv
@@ -68,45 +56,26 @@ Create a `.env` file in the project root:
 NEO4J_URL=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=your_password
-GEMINI_API_KEY=your_gemini_api_key
+groq_api_key=your_groq_api_key
 ```
 
-### 3. Neo4j Setup
-
-
-## 💻 Usage Guide
-
-### Starting the Application
-
-```bash
-streamlit run app.py
-```
 
 ### Document Processing Flow
 
-1. **Upload Documents**
-   - Use the file uploader in the UI
-   - Support for PDF documents
-   - Multiple file upload capability
 
-2. **Knowledge Graph Creation**
+1. **Knowledge Graph Creation**
    - Automatic document chunking
    - Entity extraction
    - Relationship mapping
    - Graph database population
 
-3. **Querying Documents**
+2. **Querying Documents**
    - Enter natural language questions
    - View responses based on document context
    - Explore graph visualizations
 
 ## 🔧 Technical Details
 
-### Document Processing Pipeline
-
-```python
-Document Upload → Text Extraction → Chunking → Entity Recognition → Graph Creation
-```
 
 ### Knowledge Graph Schema
 
@@ -120,15 +89,7 @@ Document Upload → Text Extraction → Chunking → Entity Recognition → Grap
 User Query → LLM Processing → Graph Search → Context Retrieval → Response Generation
 ```
 
-## 📁 Project Structure
 
-```
-graph-rag-system/
-├── app.py                 # Main application file
-├── requirements.txt       # Python dependencies
-├── README.md             # Documentation
-
-```
 
 ### Core Components
 
@@ -137,7 +98,6 @@ graph-rag-system/
 - `Neo4jGraph`: Graph database interface
 - `GraphQAChain`: Question-answering chain implementation
 
-## 🤝 Contributing Guidelines
 
 
 
