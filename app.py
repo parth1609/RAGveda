@@ -117,6 +117,12 @@ def initialize_session_state():
         st.session_state.current_dataset = None
     if 'query_history' not in st.session_state:
         st.session_state.query_history = []
+    if 'last_query' not in st.session_state:
+        st.session_state.last_query = None
+    if 'last_results' not in st.session_state:
+        st.session_state.last_results = None
+    if 'show_details' not in st.session_state:
+        st.session_state.show_details = False
 
 def display_header():
     """Display the main application header."""
@@ -128,20 +134,9 @@ def display_header():
     )
 
 def display_sidebar():
-    """Display the sidebar with dataset selection and upload options."""
-    st.sidebar.markdown('<h2 class="sub-header">📚 Dataset Management</h2>', unsafe_allow_html=True)
-    
-    # Dataset selection options
-    dataset_option = st.sidebar.radio(
-        "Choose Dataset Source:",
-        ["Use Existing Dataset", "Upload New Dataset"],
-        help="Select whether to use pre-loaded datasets or upload your own CSV file"
-    )
-    
-    if dataset_option == "Use Existing Dataset":
-        return handle_existing_dataset()
-    else:
-        return handle_file_upload()
+    """Display the sidebar with upload-only dataset option."""
+    st.sidebar.markdown('<h2 class="sub-header">📚 Upload Dataset</h2>', unsafe_allow_html=True)
+    return handle_file_upload()
 
 def handle_existing_dataset():
     """Handle selection of existing datasets."""
@@ -335,13 +330,21 @@ def display_query_interface():
     cols = st.columns(len(sample_queries))
     for i, sample_query in enumerate(sample_queries):
         with cols[i % len(cols)]:
-            if st.button(sample_query, key=f"sample_{i}", use_container_width=True):
+            if st.button(sample_query, key=f"sample_{i}", width='stretch'):
                 query = sample_query
                 st.rerun()
     
     # Process query
-    if query and st.button("🔍 Search", type="primary", use_container_width=True):
+    if query and st.button("🔍 Search", type="primary", width='stretch'):
+        # Reset details on new search
+        st.session_state.show_details = False
         process_query(query, top_k)
+        # Persist and re-render results after search
+        st.rerun()
+
+    # If we have previous results, show them to survive reruns (e.g., checkbox toggles)
+    if st.session_state.last_results:
+        display_query_results(st.session_state.last_query, st.session_state.last_results)
 
 def process_query(query: str, top_k: int):
     """Process and display query results."""
@@ -351,6 +354,10 @@ def process_query(query: str, top_k: int):
         with st.spinner("Searching for relevant content..."):
             results = processor.query(query, top_k)
         
+        # Persist latest results and query for subsequent reruns
+        st.session_state.last_query = query
+        st.session_state.last_results = results
+
         # Add to query history
         st.session_state.query_history.append({
             'query': query,
@@ -358,7 +365,7 @@ def process_query(query: str, top_k: int):
             'results_count': len(results)
         })
         
-        # Display results
+        # Display results immediately
         display_query_results(query, results)
         
     except Exception as e:
@@ -383,8 +390,13 @@ def display_query_results(query: str, results: List[Dict[str, Any]]):
     </div>
     """, unsafe_allow_html=True)
     
-    # Option to show detailed results
-    show_details = st.checkbox("🔍 Show detailed results", value=False, help="Toggle to view individual search results with full content", key=f"show_details_{hash(query)}")
+    # Option to show detailed results (state persists via key)
+    st.checkbox(
+        "🔍 Show detailed results",
+        help="Toggle to view individual search results with full content",
+        key="show_details"
+    )
+    show_details = st.session_state.get("show_details", False)
     
     if show_details:
         st.write(f"Found **{len(results)}** relevant results:")
@@ -445,7 +457,7 @@ def main():
             
             st.markdown('<h3 class="sub-header">⚙️ Processing Dataset</h3>', unsafe_allow_html=True)
             
-            if st.button("🚀 Process Dataset", type="primary", use_container_width=True):
+            if st.button("🚀 Process Dataset", type="primary", width='stretch'):
                 success = process_dataset(file_path, dataset_name, content_column)
                 if success:
                     st.rerun()
@@ -465,7 +477,7 @@ def main():
             <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
                 <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 300px;">
                     <h4 style="color: #FF6B35; margin-bottom: 1rem;">📚 Upload Dataset</h4>
-                    <p>Upload your own CSV file with spiritual texts and questions.</p>
+                    <p>Upload a CSV matching your dataset format, then choose the content column.</p>
                 </div>
                 <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 300px;">
                     <h4 style="color: #FF6B35; margin-bottom: 1rem;">🔍 Semantic Search</h4>
@@ -477,7 +489,7 @@ def main():
                 </div>
             </div>
             <p style="margin-top: 2rem; color: #6C757D;">
-                👈 Start by selecting a dataset from the sidebar
+                👈 Start by uploading a CSV from the sidebar
             </p>
         </div>
         """, unsafe_allow_html=True)
