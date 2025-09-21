@@ -198,7 +198,14 @@ class UIComponents:
             if isinstance(content, dict) and 'text' in content:
                 st.markdown(content['text'])
                 refs = references if references is not None else content.get('refrence')
-                if refs and role == 'assistant':
+                # Suppress showing sources if the model indicates uncertainty/not found
+                text_lower = str(content.get('text', '')).lower()
+                uncertainty_markers = [
+                    "insufficient", "uncertain", "not enough context", "i could not find",
+                    "cannot find", "does not contain", "no relevant", "not present", "no evidence"
+                ]
+                show_sources = bool(refs) and role == 'assistant' and not any(m in text_lower for m in uncertainty_markers)
+                if show_sources:
                     with st.expander("📚 Sources"):
                         for ref in refs:
                             st.markdown(f'<span class="reference-chip">{ref}</span>', unsafe_allow_html=True)

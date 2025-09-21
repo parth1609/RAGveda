@@ -84,9 +84,28 @@ class LLMChain:
         Returns:
             Dictionary with 'text' and 'refrence' keys
         """
-        # Extract context and top-k references (one per doc)
+        # Compute context and candidate references
         context = Retrieval.format_context(docs)
-        refs = Retrieval.topk_refs_from_docs(docs, k=len(docs))
+        # Keep only documents above similarity threshold when computing references
+        try:
+            threshold = float(Config.MIN_SIMILARITY_FOR_REFERENCES)
+        except Exception:
+            threshold = 0.30
+        filtered_docs = []
+        for d in docs:
+            score = None
+            if isinstance(d.metadata, dict) and 'score' in d.metadata:
+                try:
+                    score = float(d.metadata.get('score'))
+                except Exception:
+                    score = None
+            # If score is missing, keep the document; otherwise apply threshold
+            if score is None or score >= threshold:
+                filtered_docs.append(d)
+        if filtered_docs:
+            refs = Retrieval.topk_refs_from_docs(filtered_docs, k=len(filtered_docs))
+        else:
+            refs = []
         if source_name is None:
             try:
                 source_name = (docs[0].metadata.get('filename') if docs and isinstance(docs[0].metadata, dict) else None) or 'the uploaded dataset'
@@ -129,8 +148,22 @@ Do not include any other keys, no markdown, and no trailing text outside JSON.
             elif "text" not in result:
                 result = {"text": "Unable to parse response."}
             
-            # Inject authoritative references (limited to top-k)
-            result["refrence"] = refs
+            # If the model signaled uncertainty, suppress references
+            text_lower = result.get("text", "").lower()
+            uncertainty_markers = [
+                "insufficient", "uncertain", "not enough context", "i could not find",
+                "cannot find", "does not contain", "no relevant", "not present", "no evidence"
+            ]
+            if any(m in text_lower for m in uncertainty_markers):
+                result["refrence"] = []
+            else:
+                # Inject authoritative references (limited to confident top-k)
+                if refs:
+                    result["refrence"] = refs
+                else:
+                    # Fallback: if we do have retrieved docs but no refs due to thresholding,
+                    # derive references from all docs so the Sources panel is populated.
+                    result["refrence"] = Retrieval.topk_refs_from_docs(docs, k=len(docs)) if docs else []
             
             return result
             

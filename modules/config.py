@@ -35,6 +35,8 @@ class Config:
     # Retrieval Configuration
     DEFAULT_TOP_K = 8
     MAX_CONTEXT_CHARS = 6000
+    # Minimum cosine similarity required to keep references. Below this we suppress refs.
+    MIN_SIMILARITY_FOR_REFERENCES = float(os.getenv("MIN_SIMILARITY_FOR_REFERENCES", "0.30"))
     
     # Neo4j Index Configuration
     NODE_LABEL = "Chunk"

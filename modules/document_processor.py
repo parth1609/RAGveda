@@ -4,6 +4,7 @@ Handles CSV loading, document creation, chunking, and embedding generation.
 """
 
 import pandas as pd
+import re
 from typing import List, Optional, Tuple
 from pathlib import Path
 from langchain_community.document_loaders import DataFrameLoader
@@ -47,11 +48,54 @@ class DocumentProcessor:
         Returns:
             DataFrame with added content column
         """
-        # Check if we have chapter and verse columns for structured format
+        # Try to normalize chapter and verse columns (case-insensitive, synonyms)
+        def find_col(possible_names):
+            cols = {c.lower(): c for c in df.columns}
+            for name in possible_names:
+                if name in cols:
+                    return cols[name]
+            return None
+
+        # Known aliases
+        chapter_aliases = [
+            'chapter', 'chapter/valli', 'chapter_valli', 'adhyaya', 'canto', 'book', 'section', 'valli'
+        ]
+        verse_aliases = [
+            'verse', 'shloka', 'śloka', 'sloka', 'sutra', 'mantra'
+        ]
+
+        # Build lowercase map once
+        lower_map = {c.lower(): c for c in df.columns}
+        chapter_col = None
+        for alias in chapter_aliases:
+            if alias in lower_map:
+                chapter_col = lower_map[alias]
+                break
+        verse_col = None
+        for alias in verse_aliases:
+            if alias in lower_map:
+                verse_col = lower_map[alias]
+                break
+
+        # Create standardized 'chapter' and 'verse' columns if missing
+        def parse_first_int(val):
+            try:
+                s = str(val)
+                m = re.search(r"(\d+)", s)
+                return int(m.group(1)) if m else None
+            except Exception:
+                return None
+
+        if 'chapter' not in df.columns and chapter_col is not None:
+            df['chapter'] = df[chapter_col].apply(parse_first_int)
+        if 'verse' not in df.columns and verse_col is not None:
+            df['verse'] = df[verse_col].apply(parse_first_int)
+
+        # Build content string
         if 'chapter' in df.columns and 'verse' in df.columns:
             df['content'] = (
-                "Chapter " + df['chapter'].astype(str) + 
-                " Verse " + df['verse'].astype(str) + 
+                "Chapter " + df['chapter'].astype(str) +
+                " Verse " + df['verse'].astype(str) +
                 " — " + df[content_column].astype(str).str.strip()
             )
         else:
