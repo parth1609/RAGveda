@@ -26,6 +26,8 @@ class LLMChain:
         self.llm = None
         self.parser = JsonOutputParser()
         self.prompt_template = self._create_prompt_template()
+        # Dedicated prompt for query rewriting prior to retrieval
+        self.rewrite_prompt_template = self._create_rewrite_prompt_template()
         
     def _create_prompt_template(self) -> ChatPromptTemplate:
         """Create the prompt template for QA.
@@ -39,6 +41,38 @@ class LLMChain:
              "Follow the output format instructions exactly."),
             ("human",
              "Question:\n{question}\n\nContext:\n{context}\n\nOutput format:\n{format_instructions}")
+        ])
+    
+    def _create_rewrite_prompt_template(self) -> ChatPromptTemplate:
+        """
+        Create the prompt template for query rewriting.
+        
+        Purpose:
+            Given a potentially vague or ambiguous user message (and optional short chat history),
+            produce a precise, standalone retrieval query tailored to the current dataset.
+        
+        Returns:
+            ChatPromptTemplate: A template that elicits a compact JSON response containing
+            the rewritten query and brief notes.
+        """
+        return ChatPromptTemplate.from_messages([
+            (
+                "system",
+                "You are an expert assistant that rewrites vague user questions into clear, "
+                "standalone search queries for a retrieval system over {source_name}. "
+                "Rules: (1) Keep it concise (3–20 words). (2) Include exact numbers like chapter/verse "
+                "if the user mentions them. (3) Prefer key nouns and important entities; include 1–2 synonyms "
+                "or alternate phrasings only if they are high value. (4) Do not hallucinate details or verses. "
+                "(5) Avoid instructions; output just a search query, not a question. (6) Preserve the user's language."
+            ),
+            (
+                "human",
+                "Dataset: {source_name}\n"
+                "Chat history (optional, short):\n{history}\n\n"
+                "Original message:\n{question}\n\n"
+                "Return ONLY JSON with this exact shape:\n"
+                "{format_instructions}"
+            ),
         ])
     
     def get_llm(self) -> Optional[ChatGroq]:
@@ -177,6 +211,117 @@ Do not include any other keys, no markdown, and no trailing text outside JSON.
                     "text": f"Error generating response: {str(e)}",
                     "refrence": refs
                 }
+    
+    def rewrite_query(
+        self,
+        question: str,
+        chat_history: Optional[List[Dict[str, Any]]] = None,
+        source_name: Optional[str] = None,
+        fallback_on_error: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Rewrite a potentially vague user query into a precise retrieval query.
+        
+        Parameters:
+            question (str): The raw user message.
+            chat_history (Optional[List[Dict[str, Any]]]): Recent chat messages to provide context.
+                Each item should have keys like 'role' and 'content'.
+            source_name (Optional[str]): Human-readable dataset name; if None, defaults to
+                'the uploaded dataset'. Used to bias the rewrite to the current scope.
+            fallback_on_error (bool): If True, returns the original question when the LLM
+                is unavailable or an error occurs.
+        
+        Returns:
+            Dict[str, Any]: JSON with keys:
+                - 'rewritten_query' (str): The improved query for retrieval.
+                - 'did_rewrite' (bool): Whether a rewrite occurred.
+                - 'notes' (str): Brief rationale or disambiguation steps.
+        
+        Side Effects:
+            Calls the external Groq LLM API via LangChain if configured.
+        
+        Examples:
+            >>> llm = LLMChain()
+            >>> llm.rewrite_query("Tell me about karma", [], "Gita_questions.csv")
+            {'rewritten_query': 'karma yoga duty action results detachment', 'did_rewrite': True, 'notes': 'focused on karma yoga'}
+        """
+        # Format short history to aid the model without overloading the prompt.
+        def _format_history(items: Optional[List[Dict[str, Any]]], max_pairs: int = 3, max_len: int = 300) -> str:
+            if not items:
+                return ""
+            # Keep the most recent interactions; include at most `max_pairs` user/assistant pairs.
+            trimmed = items[-(max_pairs * 2):]
+            lines: List[str] = []
+            for m in trimmed:
+                role = m.get('role', '')
+                content = m.get('content', '')
+                # If assistant content is a dict (our QA result), reduce to text
+                if isinstance(content, dict):
+                    content = content.get('text', str(content))
+                content = str(content)
+                if len(content) > max_len:
+                    content = content[: max_len] + '…'
+                lines.append(f"{role.capitalize()}: {content}")
+            return "\n".join(lines)
+        
+        # Resolve source name
+        if source_name is None:
+            source_name = 'the uploaded dataset'
+        
+        llm = self.get_llm()
+        if llm is None:
+            return {
+                "rewritten_query": question,
+                "did_rewrite": False,
+                "notes": "LLM unavailable; used original query"
+            }
+        
+        # Expected JSON shape for the parser
+        format_instructions = (
+            '{\n'
+            '  "rewritten_query": "<concise retrieval query>",\n'
+            '  "did_rewrite": <true|false>,\n'
+            '  "notes": "<very brief reasoning or disambiguation>"\n'
+            '}'
+        )
+        variables = {
+            "question": question,
+            "history": _format_history(chat_history),
+            "source_name": source_name,
+            "format_instructions": format_instructions,
+        }
+        try:
+            result = (self.rewrite_prompt_template | llm | self.parser).invoke(variables)
+            # Validate and normalize
+            if not isinstance(result, dict):
+                return {
+                    "rewritten_query": question,
+                    "did_rewrite": False,
+                    "notes": "Unexpected parser output; fallback to original"
+                }
+            rewritten = str(result.get("rewritten_query") or "").strip()
+            did_rewrite = bool(result.get("did_rewrite", bool(rewritten and rewritten != question)))
+            notes = str(result.get("notes") or "").strip()
+            if not rewritten:
+                return {
+                    "rewritten_query": question,
+                    "did_rewrite": False,
+                    "notes": "Empty rewrite; used original"
+                }
+            return {
+                "rewritten_query": rewritten,
+                "did_rewrite": did_rewrite,
+                "notes": notes,
+            }
+        except Exception as e:
+            print(f"Error in rewrite_query: {e}")
+            if fallback_on_error:
+                return {
+                    "rewritten_query": question,
+                    "did_rewrite": False,
+                    "notes": f"Rewrite error: {e}; used original"
+                }
+            raise
     
     def create_custom_prompt(
         self, 

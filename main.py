@@ -15,6 +15,7 @@ from modules.neo4j_manager import Neo4jManager
 from modules.document_processor import DocumentProcessor
 from modules.retrieval import Retrieval
 from modules.llm_chain import LLMChain
+from modules.llm_chain import LLMChain as _LLMChain
 from modules.ui_components import UIComponents
 
 
@@ -207,9 +208,29 @@ class RAGVedaApp:
             # Generate response
             with st.chat_message('assistant'):
                 with st.spinner("Thinking..."):
-                    # Retrieve documents with filename filter
+                    # Step 1: Rewrite vague user queries into precise retrieval queries using the LLM.
+                    # Why: Improves retrieval quality by resolving ambiguity before vector search.
+                    if not hasattr(st.session_state.llm_chain, "rewrite_query"):
+                        # Reinitialize if the method isn't present (old session instance)
+                        st.session_state.llm_chain = _LLMChain()
+                    if not hasattr(st.session_state.llm_chain, "rewrite_query"):
+                        rewrite = {"rewritten_query": user_input, "did_rewrite": False, "notes": "rewrite unavailable"}
+                    else:
+                        try:
+                            rewrite = st.session_state.llm_chain.rewrite_query(
+                                user_input,
+                                chat_history=st.session_state.chat_history,
+                                source_name=st.session_state.current_file,
+                                fallback_on_error=True,
+                            )
+                        except Exception:
+                            rewrite = {"rewritten_query": user_input, "did_rewrite": False, "notes": "rewrite failed"}
+                    rewritten_query = rewrite.get("rewritten_query", user_input) or user_input
+
+                    # Step 2: Retrieve documents using the rewritten query but keep the original
+                    # human-friendly question for the final answer generation.
                     docs = st.session_state.neo4j_manager.retrieve_with_filename_filter(
-                        user_input,
+                        rewritten_query,
                         st.session_state.current_file,
                         st.session_state.top_k
                     )
@@ -220,7 +241,7 @@ class RAGVedaApp:
                             "refrence": []
                         }
                     else:
-                        # Generate response using LLM chain (support new and old signatures)
+                        # Step 3: Generate response using LLM chain (support new and old signatures)
                         try:
                             response = st.session_state.llm_chain.graph_qa_chain(
                                 user_input,
@@ -231,7 +252,6 @@ class RAGVedaApp:
                         except TypeError:
                             # The existing LLMChain instance is likely from a previous run.
                             # Reinitialize it to pick up the new signature and retry.
-                            from modules.llm_chain import LLMChain as _LLMChain
                             st.session_state.llm_chain = _LLMChain()
                             try:
                                 response = st.session_state.llm_chain.graph_qa_chain(

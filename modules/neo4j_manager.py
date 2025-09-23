@@ -4,6 +4,7 @@ Handles all Neo4j database operations including connection, vector store creatio
 """
 
 from typing import List, Dict, Any, Optional
+import time
 from langchain_neo4j import Neo4jVector
 from langchain_core.documents import Document
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
@@ -146,15 +147,33 @@ class Neo4jManager:
                score
         """
         
-        # Execute the query
-        results = self.vectorstore.query(
-            cypher_query,
-            params={
-                "filename": filename,
-                "embedding": query_embedding,
-                "k": top_k
-            }
-        )
+        # Execute the query with a single reconnect-and-retry on connection errors
+        try:
+            results = self.vectorstore.query(
+                cypher_query,
+                params={
+                    "filename": filename,
+                    "embedding": query_embedding,
+                    "k": top_k
+                }
+            )
+        except Exception as e:
+            # Attempt to reconnect to the current index and retry once
+            try:
+                if self.current_index:
+                    self.connect_to_existing_index(self.current_index)
+                    time.sleep(0.25)
+                results = self.vectorstore.query(
+                    cypher_query,
+                    params={
+                        "filename": filename,
+                        "embedding": query_embedding,
+                        "k": top_k
+                    }
+                )
+            except Exception as e2:
+                print(f"Neo4j query failed after reconnect: {e2}")
+                return []
         
         # Convert results to Document objects
         docs = []
