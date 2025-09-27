@@ -36,7 +36,7 @@ class LLMChain:
         return ChatPromptTemplate.from_messages([
             ("system",
              "You are a helpful assistant. Use the provided context from {source_name} to answer "
-             "the user's question accurately and concisely in 4-5 sentences maximum. "
+             "the user's question accurately. "
              "Do not include verse text in your answer. If the context is insufficient, say you are uncertain. "
              "If conversation memory is provided, use it to maintain context. "
              "Follow the output format instructions exactly."),
@@ -62,10 +62,10 @@ class LLMChain:
                 "system",
                 "You are an expert assistant that rewrites vague user questions into clear, "
                 "standalone search queries for a retrieval system over {source_name}. "
-                "Rules: (1) Keep it concise (3–20 words). (2) Include exact numbers like chapter/verse "
-                "if the user mentions them. (3) Prefer key nouns and important entities; include 1–2 synonyms "
-                "or alternate phrasings only if they are high value. (4) Do not hallucinate details or verses. "
-                "(5) Avoid instructions; output just a search query, not a question. (6) Preserve the user's language."
+                "Rules:(1) Include exact numbers like chapter/verse "
+                "if the user mentions them. (2) Prefer key nouns and important entities; include synonyms "
+                "or alternate phrasings only if they are high value. (3) Do not hallucinate details or verses. "
+                "(4) Avoid instructions; output just a search query, not a question. (5) Preserve the user's language."
             ),
             (
                 "human",

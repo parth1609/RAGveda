@@ -6,6 +6,7 @@ Production-level Streamlit application for Neo4j-based RAG system.
 import streamlit as st
 import pandas as pd
 import tempfile
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -58,21 +59,10 @@ class RAGVedaApp:
         errors = Config.validate()
         
         if errors:
-            st.sidebar.error("Configuration Issues:")
+            st.error("Configuration Issues:")
             for error in errors:
-                st.sidebar.error(f"• {error}")
-            
-            st.sidebar.markdown("""
-            ### Setup Instructions:
-            1. Create a `.env` file in the project root
-            2. Add the following variables:
-            ```
-            NEO4J_URL=neo4j+s://your-instance.databases.neo4j.io
-            NEO4J_USERNAME=neo4j
-            NEO4J_PASSWORD=your-password
-            GROQ_API_KEY=your-groq-api-key
-            ```
-            """)
+                st.error(f"• {error}")
+            st.info("Use the sidebar 'API Configuration' to provide or update these values, then click Save.")
             return False
         
         return True
@@ -106,12 +96,12 @@ class RAGVedaApp:
                     'translation' if 'translation' in df_preview.columns else None
                 )
                 
-                # Display data preview
-                st.sidebar.markdown("### 📊 Data Preview")
-                st.sidebar.dataframe(df_preview, width='stretch')
+                # Display data preview in main area
+                st.markdown("### 📊 Data Preview")
+                st.dataframe(df_preview, use_container_width=True)
                 
                 # Process button
-                if st.sidebar.button("🚀 Process & Create Embeddings", type="primary", width='stretch'):
+                if st.button("🚀 Process & Create Embeddings", type="primary"):
                     return {
                         'path': temp_path,
                         'filename': uploaded_file.name,
@@ -119,7 +109,7 @@ class RAGVedaApp:
                     }
                     
             except Exception as e:
-                st.sidebar.error(f"Error reading file: {str(e)}")
+                st.error(f"Error reading file: {str(e)}")
         
         return None
     
@@ -313,14 +303,39 @@ class RAGVedaApp:
             subtitle="Intelligent Semantic Search with Neo4j AuraDB"
         )
         
-        # Sidebar
-        self.ui.render_sidebar_header("📚 Upload Dataset")
+        # Sidebar: API Keys Inputs
+        creds = self.ui.render_api_key_inputs()
+        if creds:
+            # Apply runtime credentials and reinitialize services
+            Config.NEO4J_URL = creds.get("NEO4J_URL") or Config.NEO4J_URL
+            Config.NEO4J_USERNAME = creds.get("NEO4J_USERNAME") or Config.NEO4J_USERNAME
+            Config.NEO4J_PASSWORD = creds.get("NEO4J_PASSWORD") or Config.NEO4J_PASSWORD
+            Config.GROQ_API_KEY = creds.get("GROQ_API_KEY") or Config.GROQ_API_KEY
+            # Environment variables for any downstream libs
+            if creds.get("NEO4J_URL") is not None:
+                os.environ["NEO4J_URL"] = creds["NEO4J_URL"]
+            if creds.get("NEO4J_USERNAME") is not None:
+                os.environ["NEO4J_USERNAME"] = creds["NEO4J_USERNAME"]
+            if creds.get("NEO4J_PASSWORD") is not None:
+                os.environ["NEO4J_PASSWORD"] = creds["NEO4J_PASSWORD"]
+            if creds.get("GROQ_API_KEY") is not None:
+                os.environ["GROQ_API_KEY"] = creds["GROQ_API_KEY"]
+            # Hugging Face token
+            if creds.get("HF_TOKEN"):
+                os.environ["HUGGINGFACEHUB_API_TOKEN"] = creds["HF_TOKEN"]
+            # Reinitialize stateful services to pick up new creds
+            st.session_state.neo4j_manager = Neo4jManager()
+            st.session_state.llm_chain = None  # recreated lazily
+            if Config.MEMORY_ENABLED:
+                st.session_state.memory_manager = MemoryManager()
+            st.sidebar.success("Configuration saved. Reloading…")
+            st.rerun()
         
         # Validate configuration
         if not self.validate_configuration():
             return
         
-        st.sidebar.success("✅ Configuration validated")
+        st.success("✅ Configuration validated")
         
         # Settings
         settings = self.ui.render_settings_section(st.session_state.top_k)

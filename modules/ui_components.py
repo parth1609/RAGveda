@@ -7,6 +7,7 @@ import streamlit as st
 from typing import List, Dict, Any, Optional
 import pandas as pd
 from pathlib import Path
+from modules.config import Config
 
 
 class UIComponents:
@@ -102,12 +103,12 @@ class UIComponents:
     @staticmethod
     def render_file_upload_section() -> Optional[Any]:
         """
-        Render file upload section.
+        Render file upload section on the main page.
         
         Returns:
             Uploaded file object or None
         """
-        uploaded_file = st.sidebar.file_uploader(
+        uploaded_file = st.file_uploader(
             "Upload CSV Dataset",
             type=['csv'],
             help="Upload a CSV file with your data (e.g., Gita_questions.csv format)"
@@ -117,24 +118,24 @@ class UIComponents:
     @staticmethod
     def render_dataset_preview(df: pd.DataFrame, filename: str, filesize: int):
         """
-        Render dataset preview in sidebar.
+        Render dataset preview in the main content area.
         
         Args:
             df: DataFrame preview
             filename: Name of the file
             filesize: Size of the file in bytes
         """
-        st.sidebar.markdown('<div class="dataset-info">', unsafe_allow_html=True)
-        st.sidebar.write(f"**File:** {filename}")
-        st.sidebar.write(f"**Size:** {filesize:,} bytes")
-        st.sidebar.write(f"**Rows:** {len(df)}")
-        st.sidebar.write(f"**Columns:** {', '.join(df.columns)}")
-        st.sidebar.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="dataset-info">', unsafe_allow_html=True)
+        st.write(f"**File:** {filename}")
+        st.write(f"**Size:** {filesize:,} bytes")
+        st.write(f"**Rows:** {len(df)}")
+        st.write(f"**Columns:** {', '.join(df.columns)}")
+        st.markdown('</div>', unsafe_allow_html=True)
     
     @staticmethod
     def render_column_selector(columns: List[str], default_column: str = None) -> str:
         """
-        Render column selector.
+        Render column selector on the main page.
         
         Args:
             columns: List of column names
@@ -143,14 +144,14 @@ class UIComponents:
         Returns:
             Selected column name
         """
-        st.sidebar.markdown("### 📝 Select Main Content Column")
-        st.sidebar.info("Choose the column that contains the main text content for RAG")
+        st.markdown("### 📝 Select Main Content Column")
+        st.info("Choose the column that contains the main text content for RAG")
         
         default_idx = 0
         if default_column and default_column in columns:
             default_idx = columns.index(default_column)
         
-        return st.sidebar.selectbox(
+        return st.selectbox(
             "Content Column:",
             options=columns,
             index=default_idx,
@@ -160,7 +161,7 @@ class UIComponents:
     @staticmethod
     def render_settings_section(default_top_k: int = 5) -> Dict[str, Any]:
         """
-        Render settings section.
+        Render settings section on the main page.
         
         Args:
             default_top_k: Default value for top-k
@@ -168,11 +169,11 @@ class UIComponents:
         Returns:
             Dictionary of settings
         """
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("### ⚙️ Settings")
+        st.markdown("---")
+        st.markdown("### ⚙️ Settings")
         
         settings = {
-            'top_k': st.sidebar.slider(
+            'top_k': st.slider(
                 "Top-K Results",
                 min_value=1,
                 max_value=10,
@@ -261,10 +262,63 @@ class UIComponents:
                 </div>
             </div>
             <p style="margin-top: 2rem; color: #6C757D;">
-                👈 Start by uploading a CSV file from the sidebar
+                👇 Start by uploading a CSV file below
             </p>
         </div>
         """, unsafe_allow_html=True)
+
+    @staticmethod
+    def render_api_key_inputs() -> Optional[Dict[str, str]]:
+        """
+        Render sidebar inputs for API keys and tokens.
+        
+        Returns:
+            A dictionary of provided credentials if the user clicks Save; otherwise None.
+        Side Effects:
+            None. The caller is responsible for applying these values to runtime config.
+        """
+        st.sidebar.markdown("---")
+        UIComponents.render_sidebar_header("🔐 API Configuration")
+
+        neo4j_url = st.sidebar.text_input(
+            "Neo4j URL",
+            value="",
+            help="neo4j+s://<your-instance>.databases.neo4j.io"
+        )
+        neo4j_user = st.sidebar.text_input(
+            "Neo4j Username",
+            value="neo4j"
+        )
+        neo4j_pass = st.sidebar.text_input(
+            "Neo4j Password",
+            value= "",
+            type="password"
+        )
+
+        groq_key = st.sidebar.text_input(
+            "Groq API Key",
+            value= "",
+            type="password",
+            help="Set your GROQ_API_KEY to enable LLM responses"
+        )
+
+        hf_token = st.sidebar.text_input(
+            "Hugging Face Token",
+            value=(""),
+            type="password",
+            help="Used for downloading gated models or higher rate limits"
+        )
+
+        save_clicked = st.sidebar.button("Save Configuration", type="primary")
+        if save_clicked:
+            return {
+                "NEO4J_URL": neo4j_url.strip(),
+                "NEO4J_USERNAME": neo4j_user.strip(),
+                "NEO4J_PASSWORD": neo4j_pass.strip(),
+                "GROQ_API_KEY": groq_key.strip(),
+                "HF_TOKEN": hf_token.strip(),
+            }
+        return None
     
     @staticmethod
     def render_footer():
@@ -272,7 +326,7 @@ class UIComponents:
         st.markdown("---")
         st.markdown(
             '<p style="text-align: center; color: #6C757D; font-size: 0.9rem;">'
-            'RAGVeda - Powered by Neo4j AuraDB & Groq | Built with ❤️ using Streamlit</p>',
+            'RAGVeda</p>',
             unsafe_allow_html=True
         )
     

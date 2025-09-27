@@ -51,7 +51,7 @@ class Config:
     MEMORY_MAX_TURNS_BEFORE_SUMMARY = 8
     
     # Application Settings
-    APP_TITLE = "RAGVeda - Neo4j Chatbot"
+    APP_TITLE = "RAGVeda"
     APP_ICON = "🕉️"
     
     @classmethod
