@@ -23,29 +23,12 @@ A Retrieval-Augmented Generation (RAG) system that leverages Neo4j graph databas
 - **Vector Database**: Neo4j with vector search
 - **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2`
 - **LLM**: Groq with `gemma2-9b-it`
-- **Language**: Python 3.8+
 
-## � Dependencies
-
-```bash
-streamlit
-pandas
-langchain
-langchain-neo4j
-langchain-huggingface
-langchain-groq
-python-dotenv
-neo4j
-sentence-transformers
-```
+ 
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Python 3.8+
-- Neo4j AuraDB or local Neo4j instance
-- Groq API key
-
+ 
 ### Installation
 
 1. Clone the repository:
@@ -67,14 +50,7 @@ sentence-transformers
    ```bash
    pip install -r requirements.txt
    ```
-
-4. Create a `.env` file with your credentials:
-   ```env
-   NEO4J_URI=your_neo4j_uri
-   NEO4J_USERNAME=your_username
-   NEO4J_PASSWORD=your_password
-   GROQ_API_KEY=your_groq_api_key
-   ```
+ 
 
 ### Running the Application
 
@@ -83,10 +59,10 @@ sentence-transformers
    streamlit run main.py
    ```
 
-2. Open your browser to `http://localhost:8501`
+2. In the sidebar, provide your API/DB credentials under "API Configuration" and click "Save Configuration".
+   - As in Given in .env.example
 
-3. Upload a document and start asking questions!
-
+ 
 ## 🔧 Configuration
 
 Customize the application by modifying `modules/config.py`:
@@ -95,6 +71,10 @@ Customize the application by modifying `modules/config.py`:
 - Set default number of retrieved documents
 - Tune similarity thresholds
 
+Additional notes:
+- `MEMORY_ENABLED` is on by default in `modules/config.py`. Conversation turns are summarized after several exchanges and reset when you switch files.
+- `DEFAULT_TOP_K` controls how many results to retrieve. You can also adjust it at runtime via the slider in the UI.
+ 
 ## 🤖 How It Works
 
 1. **Document Processing**:
@@ -103,7 +83,7 @@ Customize the application by modifying `modules/config.py`:
    - Chunks are stored in Neo4j with metadata and relationships
 
 2. **Query Processing**:
-   - User queries are automatically rewritten for better retrieval
+   - Complex queries (longer than a few words) may be automatically rewritten for better retrieval
    - Queries are embedded and used for semantic search
    - Top-k most relevant chunks are retrieved
 
@@ -111,7 +91,7 @@ Customize the application by modifying `modules/config.py`:
    - Retrieved context is formatted into a prompt
    - LLM generates a response using the provided context
    - Response includes relevant document references
-
+ 
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
