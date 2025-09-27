@@ -36,10 +36,12 @@ class LLMChain:
         return ChatPromptTemplate.from_messages([
             ("system",
              "You are a helpful assistant. Use the provided context from {source_name} to answer "
-             "the user's question accurately and concisely in 3–5 sentences. "
-             "Do not include verse text in your answer. If the context is insufficient, say you are uncertain and ask for clarification. "
+             "the user's question accurately and concisely in 4-5 sentences maximum. "
+             "Do not include verse text in your answer. If the context is insufficient, say you are uncertain. "
+             "If conversation memory is provided, use it to maintain context. "
              "Follow the output format instructions exactly."),
             ("human",
+             "Conversation Summary (if available):\n{memory_context}\n\n"
              "Question:\n{question}\n\nContext:\n{context}\n\nOutput format:\n{format_instructions}")
         ])
     
@@ -90,7 +92,9 @@ class LLMChain:
                 self.llm = ChatGroq(
                     model=Config.LLM_MODEL,
                     temperature=Config.LLM_TEMPERATURE,
-                    groq_api_key=self.api_key
+                    groq_api_key=self.api_key,
+                    timeout=Config.LLM_TIMEOUT,
+                    max_retries=Config.LLM_MAX_RETRIES
                 )
             except Exception as e:
                 print(f"Error initializing LLM: {e}")
@@ -103,6 +107,7 @@ class LLMChain:
         question: str, 
         docs: List[Document],
         source_name: Optional[str] = None,
+        memory_context: Optional[str] = None,
         fallback_on_error: bool = True
     ) -> Dict[str, Any]:
         """
@@ -113,6 +118,7 @@ class LLMChain:
             docs: Retrieved documents
             source_name: Human-readable dataset name to condition the system prompt. If None, will
                 attempt to infer from docs[0].metadata['filename'] or default to 'the uploaded dataset'.
+            memory_context: Optional conversation summary for context
             fallback_on_error: Whether to use fallback on LLM error
             
         Returns:
@@ -162,7 +168,7 @@ class LLMChain:
         # Format instructions for JSON output
         format_instructions = """Return ONLY a JSON object with this exact shape:
 {
-  "text": "<concise answer in 3–5 sentences>"
+  "text": "<concise answer in 1-2 sentences maximum>"
 }
 Do not include any other keys, no markdown, and no trailing text outside JSON.
 """
@@ -172,6 +178,7 @@ Do not include any other keys, no markdown, and no trailing text outside JSON.
             result = (self.prompt_template | llm | self.parser).invoke({
                 "question": question,
                 "context": context,
+                "memory_context": memory_context or "No previous conversation context.",
                 "format_instructions": format_instructions,
                 "source_name": source_name
             })
@@ -287,8 +294,8 @@ Do not include any other keys, no markdown, and no trailing text outside JSON.
         variables = {
             "question": question,
             "history": _format_history(chat_history),
-            "source_name": source_name,
-            "format_instructions": format_instructions,
+            "source_name": source_name or "the uploaded dataset",
+            "format_instructions": format_instructions
         }
         try:
             result = (self.rewrite_prompt_template | llm | self.parser).invoke(variables)

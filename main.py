@@ -16,6 +16,7 @@ from modules.document_processor import DocumentProcessor
 from modules.retrieval import Retrieval
 from modules.llm_chain import LLMChain
 from modules.llm_chain import LLMChain as _LLMChain
+from modules.memory_manager import MemoryManager
 from modules.ui_components import UIComponents
 
 
@@ -41,7 +42,9 @@ class RAGVedaApp:
         if 'top_k' not in st.session_state:
             st.session_state.top_k = Config.DEFAULT_TOP_K
         if 'neo4j_manager' not in st.session_state:
-            st.session_state.neo4j_manager = None
+            st.session_state.neo4j_manager = Neo4jManager()
+        if 'memory_manager' not in st.session_state:
+            st.session_state.memory_manager = MemoryManager() if Config.MEMORY_ENABLED else None
         if 'llm_chain' not in st.session_state:
             st.session_state.llm_chain = None
     
@@ -159,8 +162,10 @@ class RAGVedaApp:
             st.session_state.current_file = file_info['filename']
             st.session_state.embeddings_created = True
             
-            # Clear chat history when switching files
+            # Clear chat history and memory when switching files
             st.session_state.chat_history = []
+            if st.session_state.memory_manager:
+                st.session_state.memory_manager.reset_session()
             
             return True
             
@@ -208,27 +213,24 @@ class RAGVedaApp:
             # Generate response
             with st.chat_message('assistant'):
                 with st.spinner("Thinking..."):
-                    # Step 1: Rewrite vague user queries into precise retrieval queries using the LLM.
-                    # Why: Improves retrieval quality by resolving ambiguity before vector search.
-                    if not hasattr(st.session_state.llm_chain, "rewrite_query"):
-                        # Reinitialize if the method isn't present (old session instance)
-                        st.session_state.llm_chain = _LLMChain()
-                    if not hasattr(st.session_state.llm_chain, "rewrite_query"):
-                        rewrite = {"rewritten_query": user_input, "did_rewrite": False, "notes": "rewrite unavailable"}
-                    else:
-                        try:
-                            rewrite = st.session_state.llm_chain.rewrite_query(
-                                user_input,
-                                chat_history=st.session_state.chat_history,
-                                source_name=st.session_state.current_file,
-                                fallback_on_error=True,
-                            )
-                        except Exception:
-                            rewrite = {"rewritten_query": user_input, "did_rewrite": False, "notes": "rewrite failed"}
-                    rewritten_query = rewrite.get("rewritten_query", user_input) or user_input
+                    # Step 1: Skip query rewriting for simple queries to improve speed
+                    rewritten_query = user_input
+                    if len(user_input.split()) > 5:  # Only rewrite complex queries
+                        if not hasattr(st.session_state.llm_chain, "rewrite_query"):
+                            st.session_state.llm_chain = _LLMChain()
+                        if hasattr(st.session_state.llm_chain, "rewrite_query"):
+                            try:
+                                rewrite = st.session_state.llm_chain.rewrite_query(
+                                    user_input,
+                                    chat_history=st.session_state.chat_history,
+                                    source_name=st.session_state.current_file,
+                                    fallback_on_error=True,
+                                )
+                                rewritten_query = rewrite.get("rewritten_query", user_input) or user_input
+                            except Exception:
+                                rewritten_query = user_input
 
-                    # Step 2: Retrieve documents using the rewritten query but keep the original
-                    # human-friendly question for the final answer generation.
+                    # Step 2: Retrieve documents
                     docs = st.session_state.neo4j_manager.retrieve_with_filename_filter(
                         rewritten_query,
                         st.session_state.current_file,
@@ -241,12 +243,18 @@ class RAGVedaApp:
                             "refrence": []
                         }
                     else:
-                        # Step 3: Generate response using LLM chain (support new and old signatures)
+                        # Step 3: Get memory context if available
+                        memory_context = None
+                        if st.session_state.memory_manager and st.session_state.memory_manager.is_available():
+                            memory_context = st.session_state.memory_manager.get_memory_context()
+                        
+                        # Step 4: Generate response using LLM chain with memory context
                         try:
                             response = st.session_state.llm_chain.graph_qa_chain(
                                 user_input,
                                 docs,
                                 source_name=st.session_state.current_file,
+                                memory_context=memory_context,
                                 fallback_on_error=True
                             )
                         except TypeError:
@@ -258,10 +266,11 @@ class RAGVedaApp:
                                     user_input,
                                     docs,
                                     source_name=st.session_state.current_file,
+                                    memory_context=memory_context,
                                     fallback_on_error=True
                                 )
                             except TypeError:
-                                # Final fallback: call without source_name
+                                # Final fallback: call without source_name and memory_context
                                 response = st.session_state.llm_chain.graph_qa_chain(
                                     user_input,
                                     docs,
@@ -270,6 +279,11 @@ class RAGVedaApp:
                 
                 # Display response as main text with references dropdown
                 self.ui.render_chat_message('assistant', response)
+            
+            # Save conversation turn to memory
+            if st.session_state.memory_manager and st.session_state.memory_manager.is_available():
+                response_text = response.get('text', str(response)) if isinstance(response, dict) else str(response)
+                st.session_state.memory_manager.save_conversation_turn(user_input, response_text)
             
             # Add assistant message to history
             st.session_state.chat_history.append({

@@ -21,7 +21,9 @@ class Config:
     # LLM Configuration
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     LLM_MODEL = "gemma2-9b-it"
-    LLM_TEMPERATURE = 0
+    LLM_TEMPERATURE = 0.1
+    LLM_TIMEOUT = 15  # seconds
+    LLM_MAX_RETRIES = 2
     
     # Embedding Configuration
     EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -33,8 +35,8 @@ class Config:
     CHUNK_OVERLAP = 200
     
     # Retrieval Configuration
-    DEFAULT_TOP_K = 8
-    MAX_CONTEXT_CHARS = 6000
+    DEFAULT_TOP_K = 5  # Reduced from 8 to speed up processing
+    MAX_CONTEXT_CHARS = 3000  # Reduced from 6000 to speed up LLM
     # Minimum cosine similarity required to keep references. Below this we suppress refs.
     MIN_SIMILARITY_FOR_REFERENCES = float(os.getenv("MIN_SIMILARITY_FOR_REFERENCES", "0.30"))
     
@@ -42,6 +44,11 @@ class Config:
     NODE_LABEL = "Chunk"
     TEXT_PROPERTY = "text"
     EMBEDDING_PROPERTY = "embedding"
+    
+    # Memory Configuration
+    MEMORY_ENABLED = True
+    MEMORY_SUMMARY_TOKEN_LIMIT = 3000
+    MEMORY_MAX_TURNS_BEFORE_SUMMARY = 8
     
     # Application Settings
     APP_TITLE = "RAGVeda - Neo4j Chatbot"
