@@ -48,6 +48,9 @@ class RAGVedaApp:
             st.session_state.memory_manager = MemoryManager() if Config.MEMORY_ENABLED else None
         if 'llm_chain' not in st.session_state:
             st.session_state.llm_chain = None
+        if 'auth_applied' not in st.session_state:
+            # Require explicit Save of API Configuration before enabling upload/chat
+            st.session_state.auth_applied = False
     
     def validate_configuration(self) -> bool:
         """
@@ -98,7 +101,7 @@ class RAGVedaApp:
                 
                 # Display data preview in main area
                 st.markdown("### 📊 Data Preview")
-                st.dataframe(df_preview, use_container_width=True)
+                st.dataframe(df_preview, width='stretch')
                 
                 # Process button
                 if st.button("🚀 Process & Create Embeddings", type="primary"):
@@ -299,44 +302,61 @@ class RAGVedaApp:
         
         # Render header
         self.ui.render_header(
-            title="RAGVeda Neo4j Chatbot",
+            title="RAGVeda ",
             subtitle="Intelligent Semantic Search with Neo4j AuraDB"
         )
-        
         # Sidebar: API Keys Inputs
         creds = self.ui.render_api_key_inputs()
         if creds:
-            # Apply runtime credentials and reinitialize services
-            Config.NEO4J_URL = creds.get("NEO4J_URL") or Config.NEO4J_URL
-            Config.NEO4J_USERNAME = creds.get("NEO4J_USERNAME") or Config.NEO4J_USERNAME
-            Config.NEO4J_PASSWORD = creds.get("NEO4J_PASSWORD") or Config.NEO4J_PASSWORD
-            Config.GROQ_API_KEY = creds.get("GROQ_API_KEY") or Config.GROQ_API_KEY
-            # Environment variables for any downstream libs
-            if creds.get("NEO4J_URL") is not None:
-                os.environ["NEO4J_URL"] = creds["NEO4J_URL"]
-            if creds.get("NEO4J_USERNAME") is not None:
-                os.environ["NEO4J_USERNAME"] = creds["NEO4J_USERNAME"]
-            if creds.get("NEO4J_PASSWORD") is not None:
-                os.environ["NEO4J_PASSWORD"] = creds["NEO4J_PASSWORD"]
-            if creds.get("GROQ_API_KEY") is not None:
-                os.environ["GROQ_API_KEY"] = creds["GROQ_API_KEY"]
-            # Hugging Face token
-            if creds.get("HF_TOKEN"):
-                os.environ["HUGGINGFACEHUB_API_TOKEN"] = creds["HF_TOKEN"]
-            # Reinitialize stateful services to pick up new creds
-            st.session_state.neo4j_manager = Neo4jManager()
-            st.session_state.llm_chain = None  # recreated lazily
-            if Config.MEMORY_ENABLED:
-                st.session_state.memory_manager = MemoryManager()
-            st.sidebar.success("Configuration saved. Reloading…")
-            st.rerun()
+            # Validate required inputs before applying
+            missing = []
+            if not (creds.get("NEO4J_URL") or "").strip():
+                missing.append("Neo4j URL")
+            if not (creds.get("NEO4J_PASSWORD") or "").strip():
+                missing.append("Neo4j Password")
+            if not (creds.get("GROQ_API_KEY") or "").strip():
+                missing.append("Groq API Key")
+            if missing:
+                st.sidebar.error("Please provide: " + ", ".join(missing))
+            else:
+                # Apply runtime credentials and reinitialize services
+                Config.NEO4J_URL = creds.get("NEO4J_URL") or Config.NEO4J_URL
+                Config.NEO4J_USERNAME = creds.get("NEO4J_USERNAME") or Config.NEO4J_USERNAME
+                Config.NEO4J_PASSWORD = creds.get("NEO4J_PASSWORD") or Config.NEO4J_PASSWORD
+                Config.GROQ_API_KEY = creds.get("GROQ_API_KEY") or Config.GROQ_API_KEY
+                # Environment variables for any downstream libs
+                if creds.get("NEO4J_URL") is not None:
+                    os.environ["NEO4J_URL"] = creds["NEO4J_URL"]
+                if creds.get("NEO4J_USERNAME") is not None:
+                    os.environ["NEO4J_USERNAME"] = creds["NEO4J_USERNAME"]
+                if creds.get("NEO4J_PASSWORD") is not None:
+                    os.environ["NEO4J_PASSWORD"] = creds["NEO4J_PASSWORD"]
+                if creds.get("GROQ_API_KEY") is not None:
+                    os.environ["GROQ_API_KEY"] = creds["GROQ_API_KEY"]
+                # Hugging Face token 
+                if creds.get("HF_TOKEN"):
+                    os.environ["HUGGINGFACEHUB_API_TOKEN"] = creds["HF_TOKEN"]
+                    os.environ["HUGGING_FACE_HUB_TOKEN"] = creds["HF_TOKEN"]
+                # Reinitialize stateful services to pick up new creds
+                st.session_state.neo4j_manager = Neo4jManager()
+                st.session_state.llm_chain = None  # recreated lazily
+                if Config.MEMORY_ENABLED:
+                    st.session_state.memory_manager = MemoryManager()
+                st.session_state.auth_applied = True
+                st.sidebar.success("Configuration saved. Reloading…")
+                st.rerun()
         
-        # Validate configuration
-        if not self.validate_configuration():
+        # Gate the rest of the UI until auth is applied in this session
+        if not st.session_state.auth_applied:
+            st.info("Please complete API Configuration in the sidebar and click 'Save Configuration' to proceed.")
+            self.ui.render_welcome_screen()
+            self.ui.render_footer()
             return
         
-        st.success("✅ Configuration validated")
-        
+        # Validate configuration (for cases where .env is already present)
+        if not self.validate_configuration():
+            return
+
         # Settings
         settings = self.ui.render_settings_section(st.session_state.top_k)
         st.session_state.top_k = settings['top_k']
