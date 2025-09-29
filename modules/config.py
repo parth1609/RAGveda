@@ -20,7 +20,7 @@ class Config:
     
     # LLM Configuration
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    LLM_MODEL = "gemma2-9b-it"
+    LLM_MODEL = "llama-3.1-8b-instant"
     LLM_TEMPERATURE = 0.1
     LLM_TIMEOUT = 15  # seconds
     LLM_MAX_RETRIES = 2
@@ -47,7 +47,7 @@ class Config:
     
     # Memory Configuration
     MEMORY_ENABLED = True
-    MEMORY_SUMMARY_TOKEN_LIMIT = 3000
+    MEMORY_SUMMARY_TOKEN_LIMIT = 4000
     MEMORY_MAX_TURNS_BEFORE_SUMMARY = 8
     
     # Application Settings
