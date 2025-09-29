@@ -8,3 +8,5 @@ python-dotenv
 neo4j
 sentence-transformers
 langchain_community
+langgraph
+langchain-text-splitters

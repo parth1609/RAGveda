@@ -11,11 +11,19 @@ A Retrieval-Augmented Generation (RAG) system that leverages Neo4j graph databas
 - **Query Rewriting**: Automatically refines vague queries for better retrieval
 - **Context-Aware Responses**: Maintains conversation context for follow-up questions
 
-### Knowledge Graph Integration
-- Neo4j-based vector database
-- Document and chunk relationship modeling
-- Efficient similarity search with cosine distance
-- Automatic file-chunk relationship management
+## 📁 Module Structure
+
+```
+modules/
+├── config.py              # Configuration management
+├── neo4j_manager.py       # Neo4j operations
+├── document_processor.py  # CSV processing
+├── retrieval.py          # Document retrieval
+├── llm_chain.py          # LLM & QA chain
+└── ui_components.py      # UI components
+
+main.py                   # Application orchestrator
+```
 
 ## 🛠 Technical Stack
 
