@@ -26,8 +26,52 @@ A Retrieval-Augmented Generation (RAG) system that leverages Neo4j graph databas
 
  
 
-## 🚀 Quick Start
+## Main Application Flow
 
+```mermaid
+flowchart TD
+    A[User] --> B[Streamlit UI]
+    B --> C{API Config Set?}
+    C -->|No| D[Show API Config Form]
+    D --> E[Save Configuration]
+    E --> F[Reinitialize Services]
+    F --> B
+    
+    C -->|Yes| G[Main Interface]
+    G --> H[Upload CSV File]
+    H --> I[DocumentProcessor]
+    I --> J[Parse CSV & Create Content]
+    J --> K[Group Documents]
+    K --> L[Split into Chunks]
+    L --> M[Generate Embeddings]
+    M --> N[Store in Neo4j]
+    N --> O[Create File Relationships]
+    O --> P[Ready for Chat]
+    
+    P --> Q[User Query]
+    Q --> R{Query Length > 5 words?}
+    R -->|Yes| S[LLMChain.rewrite_query]
+    R -->|No| T[Use Original Query]
+    S --> U[Rewritten Query]
+    U --> V[Neo4j Retrieval]
+    T --> V
+    
+    V --> W[Filter by Filename]
+    W --> X[Cosine Similarity Search]
+    X --> Y[Top-K Documents]
+    Y --> Z[Format Context]
+    Z --> AA{Memory Available?}
+    AA -->|Yes| BB[Get Memory Context]
+    AA -->|No| CC[Continue without Memory]
+    BB --> DD[LLMChain.graph_qa_chain]
+    CC --> DD
+    
+    DD --> EE[Generate Response]
+    EE --> FF[Filter References by Similarity]
+    FF --> GG[Display Response + Sources]
+    GG --> HH[Save to Memory]
+    HH --> P
+```
  
 ### Installation
 
