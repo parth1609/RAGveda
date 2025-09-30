@@ -114,6 +114,18 @@ flowchart TD
 2. In the sidebar, provide your API/DB credentials under "API Configuration" and click "Save Configuration".
    - As in Given in .env.example
 
+3. How to get [neo4j](https://neo4j.com) credential for the cloud auraDB
+   
+   ```bash
+   After SIgnup/login
+   
+    1. Navigate to the Neo4j Aura Console in your browser.
+    2. Select New Instance.
+    3. Select Create Free instance.
+    4. Copy and store the instance’s Username and Generated password or download the credentials as a .txt file.
+    5.Tick the confirmation checkbox, and select Continue.
+   ```
+
  
 ## 🔧 Configuration
 
